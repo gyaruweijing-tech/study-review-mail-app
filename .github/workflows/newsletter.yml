@@ -2,10 +2,13 @@ name: 復習メルマガ配信
 
 on:
   schedule:
-    # 本番: 毎週木曜 07:00 JST (= 水曜 22:00 UTC)
-    - cron: "0 22 * * 3"
-    # 実験: 2026-08-05 12:00 JST (= 03:00 UTC)。テストが済んだら消す
-    - cron: "0 3 5 8 *"
+    # 毎時00分はActionsが最も混雑し、キューされたジョブが捨てられることがある
+    # (docs: "some queued jobs may be dropped")。だから毎時ちょうどを避ける。
+    #
+    # 本番: 毎週木曜 07:23 JST (= 水曜 22:23 UTC)
+    - cron: "23 22 * * 3"
+    # 実験: 2026-08-05 12:07 JST (= 03:07 UTC)。テストが済んだら消す
+    - cron: "7 3 5 8 *"
   workflow_dispatch:
     inputs:
       force:
@@ -41,7 +44,7 @@ jobs:
           MAIL_TO: ${{ secrets.MAIL_TO }}
           MAIL_FROM: ${{ vars.MAIL_FROM }}
           # 実験用の cron と手動実行では、期限に関係なく必ず1件送る
-          FORCE_SEND: ${{ (github.event.schedule == '0 3 5 8 *' || inputs.force) && '1' || '0' }}
+          FORCE_SEND: ${{ (github.event.schedule == '7 3 5 8 *' || inputs.force) && '1' || '0' }}
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
         run: node send.mjs
 
