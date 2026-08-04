@@ -1,0 +1,59 @@
+name: 復習メルマガ配信
+
+on:
+  schedule:
+    # 本番: 毎週木曜 07:00 JST (= 水曜 22:00 UTC)
+    - cron: "0 22 * * 3"
+    # 実験: 2026-08-05 12:00 JST (= 03:00 UTC)。テストが済んだら消す
+    - cron: "0 3 5 8 *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "復習期限が来ていなくても送る"
+        type: boolean
+        default: true
+      dry_run:
+        description: "送信せず本文だけ確認する"
+        type: boolean
+        default: false
+
+# state.json と notes/ の書き戻しに必要
+permissions:
+  contents: write
+
+concurrency:
+  group: newsletter
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 送信
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          MAIL_FROM: ${{ vars.MAIL_FROM }}
+          # 実験用の cron と手動実行では、期限に関係なく必ず1件送る
+          FORCE_SEND: ${{ (github.event.schedule == '0 3 5 8 *' || inputs.force) && '1' || '0' }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: node send.mjs
+
+      - name: 復習状態を書き戻す
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "変更なし"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notes state.json
+          git commit -m "chore: 配信結果を反映"
+          git push
