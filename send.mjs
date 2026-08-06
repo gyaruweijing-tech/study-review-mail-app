@@ -115,6 +115,43 @@ function answerUrl(note, level) {
   return `https://github.com/${REPO}/issues/new?${params}`;
 }
 
+/**
+ * ノート本文（軽いMarkdown）をメール用HTMLに起こす。
+ * 対応するのは `## 見出し` / `- 箇条書き` / `**強調**` の3つだけ。
+ * メールクライアントは <style> を落とすので、すべてインラインで書く。
+ */
+function renderNoteBody(markdown) {
+  const inline = (s) =>
+    escapeHtml(s).replace(
+      /\*\*(.+?)\*\*/g,
+      '<strong style="color:#2f2a22;">$1</strong>',
+    );
+
+  return String(markdown ?? "")
+    .split("\n")
+    .map((line) => {
+      const t = line.trim();
+      if (t === "") return "";
+      if (t.startsWith("## ")) {
+        return `<div style="font-size:15px;font-weight:700;color:#2f2a22;margin:22px 0 10px;">${inline(
+          t.slice(3),
+        )}</div>`;
+      }
+      if (t.startsWith("- ")) {
+        return `<div style="font-size:14px;line-height:1.85;color:#4a4237;margin:0 0 8px;padding-left:14px;text-indent:-14px;">・${inline(
+          t.slice(2),
+        )}</div>`;
+      }
+      // 元のインデント（「→」の続き行など）は意味を持つので、字下げとして残す
+      const indent = (line.match(/^ */)?.[0].length ?? 0) * 7;
+      return `<div style="font-size:14px;line-height:1.85;color:#4a4237;margin:0 0 10px;padding-left:${indent}px;">${inline(
+        t,
+      )}</div>`;
+    })
+    .filter(Boolean)
+    .join("");
+}
+
 const ANSWER_BUTTONS = [
   { level: "ok", label: "余裕でした", bg: "#3f7d4e" },
   { level: "vague", label: "あやしい", bg: "#b08430" },
@@ -172,6 +209,13 @@ function renderHtml({ note, character, questions }) {
             <div style="font-size:19px;line-height:1.55;color:#ffffff;font-weight:700;">
               ${escapeHtml(note.title)}
             </div>
+            ${
+              note.tags
+                ? `<div style="font-size:11px;color:#cfe6d4;margin-top:10px;">
+                     ${escapeHtml(String(note.tags).split(",").join(" ／ "))}
+                   </div>`
+                : ""
+            }
           </td></tr>
         </table>
       </td></tr>
@@ -189,6 +233,37 @@ function renderHtml({ note, character, questions }) {
         <div style="font-size:13px;line-height:1.8;color:#7d7365;">
           ${escapeHtml(character.closing)}
         </div>
+      </td></tr>
+
+      <tr><td style="padding:34px 0 0 0;">
+        <div style="border-top:1px dashed #d8d0c2;padding-top:22px;">
+          <div style="font-size:11px;color:#a99e8c;letter-spacing:.1em;margin-bottom:6px;">
+            ここから下：そのとき書いたノート
+          </div>
+          <div style="font-size:12px;line-height:1.7;color:#9a8f7d;">
+            先に自分の言葉で答えてみて、詰まったら読んでください。
+          </div>
+        </div>
+      </td></tr>
+
+      ${
+        note.summary
+          ? `<tr><td style="padding:18px 0 0 0;">
+               <div style="font-size:13px;line-height:1.85;color:#5c5346;background:#f3efe6;
+                           padding:14px 16px;border-radius:8px;">
+                 ${escapeHtml(note.summary)}
+               </div>
+             </td></tr>`
+          : ""
+      }
+
+      <tr><td style="padding:14px 0 0 0;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+               style="background:#ffffff;border:1px solid #e6e1d8;border-radius:12px;">
+          <tr><td style="padding:20px 22px;">
+            ${renderNoteBody(note.content)}
+          </td></tr>
+        </table>
       </td></tr>
 
       <tr><td style="padding:26px 0 0 0;">
@@ -230,6 +305,7 @@ function renderText({ note, character, questions }) {
     "",
     `${note.date} / ${note.source ?? ""}`,
     note.title,
+    ...(note.tags ? [String(note.tags).split(",").join(" / ")] : []),
     "",
     character.greeting,
     "",
@@ -239,6 +315,14 @@ function renderText({ note, character, questions }) {
       "",
     ]),
     character.closing,
+    "",
+    "=========================================",
+    " ここから下：そのとき書いたノート",
+    " 先に自分の言葉で答えてみて、詰まったら読んでください。",
+    "=========================================",
+    "",
+    ...(note.summary ? [note.summary, ""] : []),
+    String(note.content ?? "").trim(),
     "",
     "--- 説明できたか、どれか開いて送信してください ---",
     ...ANSWER_BUTTONS.map((b) => `${b.label}: ${answerUrl(note, b.level)}`),
