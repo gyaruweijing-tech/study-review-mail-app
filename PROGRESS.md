@@ -113,3 +113,14 @@ mulmoclaude/data/study-review/items/
     `state.json` に `judgedBy` を残せば、後からAIを入れて過去分を遡って再判定できる
   - **未回答なら復習ステージを進めない**（現状は送信しただけで 7→14→30 と進んでしまう＝タイマーであって復習ではない）
   - ハルたちは採点しない。判定者はキャラとは別人格（`character.json` 掟5「理解度の判定は裏でやる」の維持）
+- **回答の受け口を実装**（`answer.mjs` + `.github/workflows/answer.yml`）。Issueルートを採用。
+  安全対策は4点：①`github.event.*` を `run:` に展開せず env 経由で Node に渡す（公式推奨の
+  スクリプトインジェクション対策）②このワークフローに秘密を一切渡さない③`github.event.issue.user.login
+  == github.repository_owner` で所有者以外のIssueでは発火させない（将来publicにした場合の保険）
+  ④権限は contents:write と issues:write のみ。加えて noteId は notes/ の実在ファイル名との一致でしか
+  解決せず、パストラバーサルは正規表現の時点で弾く
+  - 検証済み：正常系／ステージ降格／**本文にシェルを仕込むインジェクション試行**／パストラバーサル試行／
+    無関係なIssueでの誤爆、いずれも期待通り
+  - `state.json` の書き込みが配信ワークフローと衝突しないよう `concurrency: state-write` で直列化
+  - **未着手**：`send.mjs` 側（キャラ抽選・回答リンクの埋め込み・**送信時にステージを進めるのをやめる**）。
+    現状は受け口が出来ただけで誰も叩かないため、木曜の配信は無傷のまま

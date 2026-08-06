@@ -1,0 +1,60 @@
+name: 回答を受け取る
+
+# Issue本文は「信頼できない入力」。このファイルの守り方は4つ:
+#   1. github.event.* を run: に直接展開しない（env経由でNodeに渡す）
+#   2. このワークフローに秘密を一切渡さない（漏れるものを置かない）
+#   3. リポジトリ所有者が立てたIssueしか処理しない（将来publicにしても他人では発火しない）
+#   4. 権限は contents:write と issues:write だけ
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write # notes/ と state.json の書き戻し
+  issues: write # 処理済みIssueにコメントして閉じる
+
+# 木曜の配信ワークフローと state.json を取り合わないよう直列化する
+concurrency:
+  group: state-write
+  cancel-in-progress: false
+
+jobs:
+  record:
+    # 所有者以外が立てたIssueでは絶対に動かさない
+    if: github.event.issue.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 回答を反映
+        env:
+          # ここが肝。式を中間の環境変数に入れることで、値がスクリプト生成に関与しなくなる
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+        run: node answer.mjs
+
+      - name: 書き戻す
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "変更なし"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notes state.json
+          git commit -m "chore: 回答を反映"
+          # 配信ワークフローの書き戻しと衝突しても落ちないように
+          git pull --rebase
+          git push
+
+      - name: Issueを閉じる
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: gh issue close "$ISSUE_NUMBER" --comment "受け取りました。復習予定に反映しています。" --repo "$GITHUB_REPOSITORY"
