@@ -18,7 +18,8 @@ const ROOT = process.cwd();
 const STATE_FILE = path.join(ROOT, "state.json");
 const NOTES_DIR = path.join(ROOT, "notes");
 
-// send.mjs と同じ表。ここを直すときは向こうも直す
+// 復習ステージの進行表はここが正。ステージを動かすのは回答が届いたときだけなので、
+// 送信側（send.mjs）はこの表を持たない
 const STAGES = ["新規", "1周目", "2周目", "3周目", "定着"];
 const STAGE_DAYS = { 新規: 7, "1周目": 14, "2周目": 30, "3周目": 60, 定着: 120 };
 
@@ -108,6 +109,8 @@ function main() {
 
   note.reviewStage = stage;
   note.nextReviewDate = nextReviewDate;
+  note.status = "回答済み";
+  note.awaitingAnswer = false;
 
   const state = JSON.parse(readFileSync(STATE_FILE, "utf8"));
   state.answers = state.answers ?? [];
