@@ -196,3 +196,6 @@ mulmoclaude/data/study-review/items/
     `STAGES.indexOf("3回目")` が -1 → 無言で「新規」に落ちる。受け取り側で正規化する
 - **着手順序が重要**：丸茂側が入る前に sync.mjs の境界を反転してはいけない。
   まだ questions を持たない丸茂のデータで既存の良問が消える。空で上書きしないガードも必須
+  - 追記: **スキルの実体が2箇所にある**（`.claude/skills/study-review/` と `data/skills/study-review/`）。
+    2026-08-07時点で両者はバイト単位で同一・更新時刻も同じなので同期経路がある。
+    `paths.ts` では `data/skills` が `skillsStaging`。片方だけ編集すると無言で食い違うため設計書に注意書きを追加
