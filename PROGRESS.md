@@ -199,3 +199,24 @@ mulmoclaude/data/study-review/items/
   - 追記: **スキルの実体が2箇所にある**（`.claude/skills/study-review/` と `data/skills/study-review/`）。
     2026-08-07時点で両者はバイト単位で同一・更新時刻も同じなので同期経路がある。
     `paths.ts` では `data/skills` が `skillsStaging`。片方だけ編集すると無言で食い違うため設計書に注意書きを追加
+- **境界の反転を実施（丸茂側の対応完了を受けて）**。丸茂の報告は現物で裏を取った：
+  7本すべて `questions` 3問＋`mailHook` あり、スキルの2箇所（`.claude/skills/` と `data/skills/`）も一致、
+  手書き2本の質問はバイト単位で保全されていた
+  - `sync.mjs`: `REPO_OWNED` から `questions`/`mailHook` を外し、`answers` を追加。
+    **空で上書きしないガード**（`INCOMING_IF_PRESENT`）を入れた。丸茂が未対応のノート1本で良問が消えるのを防ぐ番人
+  - 新規取り込み時は `INITIAL_STATE`（新規／未復習）から始める。丸茂の `reviewStage` は語彙が別物
+    （1回目/マスター vs 1周目/定着）で、持ち込むと `STAGES.indexOf` が -1 → 無言で「新規」に落ちるため
+  - 新規の `nextReviewDate` は学習日に置いた。すぐ出題対象になり、かつ**古いノートから順に届く**
+  - 同期結果：新規3件・更新4件。既存4件は進行状態が全て据え置き、質問も消えていないことを差分で確認
+- **想定外だった追加作業：メール描画がリッチHTMLに追従していなかった**。
+  `content` が丸茂のHTML（callout/recall/diagram/表）に差し替わった結果、`send.mjs` が
+  `<div class="callout key">` を**素の文字としてメールに出していた**。設計時に見落としていた
+  - `send.mjs` に `parseNoteBlocks()` を追加。空行でブロックに割ってから種別ごとに描画する
+    （丸茂側の絶対ルール「パーツ内に空行なし・パーツ間に空行あり」が効くのでこれで分断されない）
+  - callout=色つき箱 / recall=枠つき問答 / diagram=Mermaidソースを捨ててキャプションだけ /
+    表=`<table>` / 深掘りボタン=除去（メールでは押せない）
+  - `renderNoteText()` を新設し、テキスト版も同じブロックから起こすようにした
+  - 検証：生タグ・mermaidソース・ボタン文字の残存ゼロ、callout/recall/表の描画、回答ボタン3つを確認。
+    全7ノートのHTMLパーツ58個が既知3種に収まっていることも確認
+  - **申し送り**：丸茂側が SKILL.md に新しいHTMLパーツを足したら、`parseNoteBlocks()` にも足すこと。
+    未対応パーツは無言で生タグとしてメールに出る

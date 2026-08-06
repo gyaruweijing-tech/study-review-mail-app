@@ -3,10 +3,12 @@
  * ローカルの MulmoClaude ワークスペースから学習ノートを取り込む。
  * PCが起動しているときに手で叩く（週1回動けば足りる）。
  *
- * 同期の向きと責務:
- *   - 教材そのもの (title/date/source/tags/summary/content) は MulmoClaude 側が正。
- *   - 復習の進行状態 (reviewStage/nextReviewDate/status/lastSentDate) と questions は
- *     このリポジトリ側が正。GitHub Actions が書き換えるので、上書きしない。
+ * 同期の向きと責務（2026-08-07 に questions/mailHook の持ち主を反転した）:
+ *   - 「教材と、教材から作れるもの」は MulmoClaude 側が正。
+ *     title/date/source/tags/summary/content に加えて questions/mailHook もこちら。
+ *     ノートは本文を MulmoClaude のチャットに貼って作るので、取り込みの瞬間に本文は読まれている。
+ *     質問もそこで一緒に作らせるのが一番安い（後から API で読み直させるのは二度払い）。
+ *   - 「誰がいつ何と答えたか」はこのリポジトリが正。GitHub Actions が書き換えるので上書きしない。
  */
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -19,8 +21,32 @@ const SOURCE_DIR =
   process.env.STUDY_REVIEW_SRC ??
   path.join(os.homedir(), "mulmoclaude", "data", "study-review", "items");
 
-/** リポジトリ側が保持し、同期で上書きされないフィールド。 */
-const REPO_OWNED = ["reviewStage", "nextReviewDate", "status", "lastSentDate", "questions"];
+/** リポジトリ側が保持し、同期で上書きされないフィールド。answers は回答履歴。 */
+const REPO_OWNED = ["reviewStage", "nextReviewDate", "status", "lastSentDate", "answers"];
+
+/**
+ * MulmoClaude 側が正だが、空で既存を潰してはいけないフィールド。
+ * 向こうがまだ questions を持っていないノートが1本混ざるだけで良問が消えるため、
+ * 「中身があるときだけ受け取る」を機械的に守る。
+ */
+const INCOMING_IF_PRESENT = {
+  questions: (v) => Array.isArray(v) && v.length > 0,
+  mailHook: (v) => typeof v === "string" && v.trim() !== "",
+};
+
+/**
+ * MulmoClaude 側の復習ステージ（新規/1回目/…/マスター）は、
+ * このリポジトリのステージ（新規/1周目/…/定着）とは別物の進行状態。
+ * 語彙が違うので持ち込むと answer.mjs の STAGES.indexOf が -1 になり無言で「新規」に落ちる。
+ * 新規取り込みは必ずこちらの初期値から始める。
+ */
+const INITIAL_STATE = {
+  reviewStage: "新規",
+  status: "未復習",
+};
+
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const todayJst = () => new Date(Date.now() + JST_OFFSET_MS).toISOString().slice(0, 10);
 
 async function readJsonIfExists(file) {
   try {
@@ -54,6 +80,18 @@ async function main() {
       for (const key of REPO_OWNED) {
         if (existing[key] !== undefined) merged[key] = existing[key];
       }
+      // 向こうが空/未対応なら、こちらの既存を残す（無言で良問を消さないための番人）
+      for (const [key, hasValue] of Object.entries(INCOMING_IF_PRESENT)) {
+        if (!hasValue(incoming[key])) merged[key] = existing[key];
+      }
+    } else {
+      // 新規取り込み。MulmoClaude 側の進行状態は語彙が別物なので持ち込まない。
+      Object.assign(merged, INITIAL_STATE);
+      // 期限は学習日に置く。すぐ出題対象になり、古いノートから順に届く。
+      merged.nextReviewDate = incoming.date ?? todayJst();
+    }
+    for (const key of Object.keys(INCOMING_IF_PRESENT)) {
+      if (merged[key] === undefined) delete merged[key];
     }
 
     const next = `${JSON.stringify(merged, null, 2)}\n`;

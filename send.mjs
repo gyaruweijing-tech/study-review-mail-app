@@ -116,40 +116,145 @@ function answerUrl(note, level) {
 }
 
 /**
- * ノート本文（軽いMarkdown）をメール用HTMLに起こす。
- * 対応するのは `## 見出し` / `- 箇条書き` / `**強調**` の3つだけ。
- * メールクライアントは <style> を落とすので、すべてインラインで書く。
+ * ノート本文をブロックに切り分ける。
+ *
+ * MulmoClaude 側が content をリッチHTML化した（2026-08-06〜）ので、素の Markdown に加えて
+ * callout / recall / diagram の3種のHTMLパーツが混ざってくる。向こうの絶対ルールで
+ * 「パーツ内に空行を挟まない・パーツ間には必ず空行」が保証されているため、空行で割れば
+ * パーツが分断されない。中身は自前の生成物なので正規表現で抜き出して問題ない。
  */
-function renderNoteBody(markdown) {
-  const inline = (s) =>
-    escapeHtml(s).replace(
-      /\*\*(.+?)\*\*/g,
-      '<strong style="color:#2f2a22;">$1</strong>',
-    );
+function parseNoteBlocks(markdown) {
+  const stripTags = (s) =>
+    String(s ?? "")
+      .replace(/<button[\s\S]*?<\/button>/g, "") // 深掘りボタンはメールでは押せない
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const paragraphs = (s) =>
+    [...String(s).matchAll(/<p>([\s\S]*?)<\/p>/g)].map((m) => stripTags(m[1])).filter(Boolean);
 
   return String(markdown ?? "")
-    .split("\n")
-    .map((line) => {
-      const t = line.trim();
-      if (t === "") return "";
-      if (t.startsWith("## ")) {
-        return `<div style="font-size:15px;font-weight:700;color:#2f2a22;margin:22px 0 10px;">${inline(
-          t.slice(3),
-        )}</div>`;
-      }
-      if (t.startsWith("- ")) {
-        return `<div style="font-size:14px;line-height:1.85;color:#4a4237;margin:0 0 8px;padding-left:14px;text-indent:-14px;">・${inline(
-          t.slice(2),
-        )}</div>`;
-      }
-      // 元のインデント（「→」の続き行など）は意味を持つので、字下げとして残す
-      const indent = (line.match(/^ */)?.[0].length ?? 0) * 7;
-      return `<div style="font-size:14px;line-height:1.85;color:#4a4237;margin:0 0 10px;padding-left:${indent}px;">${inline(
-        t,
-      )}</div>`;
-    })
+    .split(/\n\s*\n/)
+    .map((chunk) => chunk.trim())
     .filter(Boolean)
+    .map((chunk) => {
+      const callout = chunk.match(/^<div class="callout (key|warn|info)"/);
+      if (callout) {
+        const label = stripTags(chunk.match(/<span class="callout-label">([\s\S]*?)<\/span>/)?.[1]);
+        const body = paragraphs(chunk);
+        return { type: "callout", tone: callout[1], label, body: body.length ? body : [stripTags(chunk)] };
+      }
+      if (chunk.startsWith('<details class="recall"')) {
+        return {
+          type: "recall",
+          q: stripTags(chunk.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]),
+          body: paragraphs(chunk),
+        };
+      }
+      if (chunk.startsWith('<div class="diagram"')) {
+        // Mermaid のソースはメールでは図にならないので捨て、キャプションだけ残す
+        const caption = stripTags(chunk.match(/<div class="diagram-caption">([\s\S]*?)<\/div>/)?.[1]);
+        return caption ? { type: "caption", text: caption } : null;
+      }
+      const lines = chunk.split("\n").map((l) => l.trimEnd());
+      if (lines.length >= 2 && lines.every((l) => l.trim().startsWith("|"))) {
+        const rows = lines
+          .filter((l) => !/^\|[\s|:-]+\|$/.test(l.trim()))
+          .map((l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim()));
+        return { type: "table", rows };
+      }
+      return { type: "markdown", lines };
+    })
+    .filter(Boolean);
+}
+
+const CALLOUT_TONES = {
+  key: { bg: "#eef4ef", border: "#3f7d4e", label: "#3f7d4e" },
+  warn: { bg: "#fbf3e6", border: "#b08430", label: "#8a6520" },
+  info: { bg: "#eef1f6", border: "#5b6b86", label: "#4a5871" },
+};
+
+/** ブロックをメール用HTMLに起こす。メールは <style> を落とすので全部インライン。 */
+function renderNoteBody(markdown) {
+  const inline = (s) =>
+    escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong style="color:#2f2a22;">$1</strong>');
+  const para = (text, extra = "") =>
+    `<div style="font-size:14px;line-height:1.85;color:#4a4237;margin:0 0 10px;${extra}">${inline(text)}</div>`;
+
+  return parseNoteBlocks(markdown)
+    .map((block) => {
+      if (block.type === "callout") {
+        const tone = CALLOUT_TONES[block.tone] ?? CALLOUT_TONES.info;
+        const label = block.label
+          ? `<div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:${tone.label};margin-bottom:6px;">${inline(block.label)}</div>`
+          : "";
+        const body = block.body
+          .map(
+            (t) =>
+              `<div style="font-size:14px;line-height:1.85;color:#3d3629;margin:0 0 6px;">${inline(t)}</div>`,
+          )
+          .join("");
+        return `<div style="background:${tone.bg};border-left:3px solid ${tone.border};border-radius:0 8px 8px 0;padding:12px 14px;margin:0 0 14px;">${label}${body}</div>`;
+      }
+      if (block.type === "recall") {
+        const body = block.body
+          .map(
+            (t) =>
+              `<div style="font-size:14px;line-height:1.85;color:#4a4237;margin:0 0 6px;">${inline(t)}</div>`,
+          )
+          .join("");
+        return `<div style="border:1px dashed #d8d0c2;border-radius:8px;padding:12px 14px;margin:0 0 14px;"><div style="font-size:14px;font-weight:700;color:#2f2a22;margin-bottom:8px;">${inline(block.q)}</div>${body}</div>`;
+      }
+      if (block.type === "caption") {
+        return `<div style="font-size:12px;line-height:1.7;color:#9a8f7d;margin:0 0 12px;">${inline(block.text)}</div>`;
+      }
+      if (block.type === "table") {
+        const rows = block.rows
+          .map((cells, i) => {
+            const tag = i === 0 ? "th" : "td";
+            const style =
+              i === 0
+                ? "padding:8px 10px;border-bottom:2px solid #e6e1d8;text-align:left;font-size:12px;color:#7d7365;"
+                : "padding:8px 10px;border-bottom:1px solid #f0ece4;font-size:13px;color:#4a4237;vertical-align:top;";
+            return `<tr>${cells.map((c) => `<${tag} style="${style}">${inline(c)}</${tag}>`).join("")}</tr>`;
+          })
+          .join("");
+        return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 14px;border-collapse:collapse;">${rows}</table>`;
+      }
+      return block.lines
+        .map((line) => {
+          const t = line.trim();
+          if (t === "") return "";
+          if (t.startsWith("## ")) {
+            return `<div style="font-size:15px;font-weight:700;color:#2f2a22;margin:22px 0 10px;">${inline(t.slice(3))}</div>`;
+          }
+          if (t.startsWith("- ")) {
+            return `<div style="font-size:14px;line-height:1.85;color:#4a4237;margin:0 0 8px;padding-left:14px;text-indent:-14px;">・${inline(t.slice(2))}</div>`;
+          }
+          // 元のインデント（「→」の続き行など）は意味を持つので、字下げとして残す
+          const indent = (line.match(/^ */)?.[0].length ?? 0) * 7;
+          return para(t, `padding-left:${indent}px;`);
+        })
+        .filter(Boolean)
+        .join("");
+    })
     .join("");
+}
+
+/** 同じブロックをプレーンテキストに起こす（HTMLを表示しないクライアント向け）。 */
+function renderNoteText(markdown) {
+  return parseNoteBlocks(markdown)
+    .map((block) => {
+      if (block.type === "callout") {
+        const label = block.label ? `【${block.label}】` : "";
+        return `${label}${block.body.join("\n")}`;
+      }
+      if (block.type === "recall") return [`Q. ${block.q}`, ...block.body].join("\n");
+      if (block.type === "caption") return `（${block.text}）`;
+      if (block.type === "table") return block.rows.map((cells) => cells.join(" / ")).join("\n");
+      return block.lines.join("\n");
+    })
+    .join("\n\n");
 }
 
 const ANSWER_BUTTONS = [
@@ -322,7 +427,7 @@ function renderText({ note, character, questions }) {
     "=========================================",
     "",
     ...(note.summary ? [note.summary, ""] : []),
-    String(note.content ?? "").trim(),
+    renderNoteText(note.content),
     "",
     "--- 説明できたか、どれか開いて送信してください ---",
     ...ANSWER_BUTTONS.map((b) => `${b.label}: ${answerUrl(note, b.level)}`),
