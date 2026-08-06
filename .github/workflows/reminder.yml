@@ -1,0 +1,40 @@
+name: 単発リマインダー
+
+# 復習メルマガ(newsletter.yml)とは完全に別枠。state.json も notes/ も触らない。
+on:
+  schedule:
+    # 2026-08-07 17:25 JST (= 08:25 UTC)。JavaSilver着手リマインド。
+    # Actionsの定期実行は混雑時に数分〜十数分遅れるので、17:30の少し手前に置いてある。
+    # cron に年フィールドが無いため、reminder.mjs 側の FIRE_DATE で来年の誤爆を防ぐ。
+    - cron: "25 8 7 8 *"
+  workflow_dispatch:
+
+# 何も書き戻さないので読み取りだけで足りる
+permissions:
+  contents: read
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 送信
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          MAIL_FROM: ${{ vars.MAIL_FROM }}
+          # 手動実行(workflow_dispatch)のときは日付チェックを外してテストできる
+          FIRE_DATE: ${{ github.event_name == 'schedule' && '2026-08-07' || '' }}
+          SUBJECT: "JavaSilver、手をつけるだけ"
+          BODY: |
+            JavaSilver手つけてみる。
+
+            やる気なんて、やっているうちに出てくるものである。
+
+            教材を開くところまででいい。あとは勝手に乗ってくる。
+        run: node reminder.mjs
