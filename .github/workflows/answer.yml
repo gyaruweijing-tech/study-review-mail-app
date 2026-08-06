@@ -31,7 +31,10 @@ jobs:
           node-version: "24"
 
       - name: 回答を反映
+        id: apply
         env:
+          # Issueへ返すコメントの下書き。作業ツリーの外に置く（git status を汚さないため）
+          COMMENT_FILE: ${{ runner.temp }}/comment.md
           # ここが肝。式を中間の環境変数に入れることで、値がスクリプト生成に関与しなくなる
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
@@ -41,7 +44,9 @@ jobs:
 
       - name: 書き戻す
         run: |
-          if [ -z "$(git status --porcelain)" ]; then
+          # 対象を notes と state.json に限定する。作業ツリー全体を見ると、
+          # 無関係な生成物があるだけで「変更あり」と誤判定して commit に失敗する
+          if [ -z "$(git status --porcelain notes state.json)" ]; then
             echo "変更なし"
             exit 0
           fi
@@ -53,8 +58,19 @@ jobs:
           git pull --rebase
           git push
 
-      - name: Issueを閉じる
+      # 記録できたときだけ閉じる。読み取れなかった回答を閉じてしまうと、
+      # 本人は記録された気になるが実際には何も残らない
+      - name: 結果をIssueに返す
+        if: always() && steps.apply.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: gh issue close "$ISSUE_NUMBER" --comment "受け取りました。復習予定に反映しています。" --repo "$GITHUB_REPOSITORY"
+          RECORDED: ${{ steps.apply.outputs.recorded }}
+          COMMENT_FILE: ${{ runner.temp }}/comment.md
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --body-file "$COMMENT_FILE" --repo "$GITHUB_REPOSITORY"
+          if [ "$RECORDED" = "true" ]; then
+            gh issue close "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"
+          else
+            echo "記録できなかったのでIssueは開いたままにします"
+          fi

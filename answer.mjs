@@ -11,7 +11,7 @@
  *   DRY_RUN                                                 1 なら書き込まず結果だけ出す
  */
 
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, appendFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -30,6 +30,22 @@ const LEVELS = {
   vague: { label: "あやしい", move: 0, minDays: 7 },
   ng: { label: "無理でした", move: -1, minDays: 3 },
 };
+
+/**
+ * 処理結果を呼び出し元（ワークフロー）に返す。
+ * 記録できなかったのに「受け取りました」と返してIssueを閉じると、
+ * 本人は記録された気になるが実際には何も残っていない、という最悪の嘘になる。
+ * だから成否を必ず伝え、失敗時はIssueを開いたままにする。
+ */
+function report(ok, message) {
+  console.log(message);
+  if (process.env.COMMENT_FILE) {
+    writeFileSync(process.env.COMMENT_FILE, message, "utf8");
+  }
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `recorded=${ok}\n`, "utf8");
+  }
+}
 
 function addDaysJst(days) {
   const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -93,13 +109,22 @@ function main() {
 
   const { noteId, level } = parseIssue({ title, body, labels });
   if (!noteId || !level) {
-    console.log(`回答Issueとして解釈できませんでした (noteId=${noteId}, level=${level})。何もしません`);
+    report(
+      false,
+      `⚠️ 回答として読み取れませんでした（noteId=${noteId ?? "不明"} / level=${level ?? "不明"}）。\n` +
+        "本文の `noteId:` と `level:` の行が消えていないか確認してください。" +
+        "**このIssueは開いたままにしてあります**。復習予定には何も反映していません。",
+    );
     return;
   }
 
   const found = loadNote(noteId);
   if (!found) {
-    console.log(`ノートが見つかりません: ${noteId}。何もしません`);
+    report(
+      false,
+      `⚠️ ノートが見つかりませんでした: \`${noteId}\`\n` +
+        "**このIssueは開いたままにしてあります**。復習予定には何も反映していません。",
+    );
     return;
   }
 
@@ -126,16 +151,22 @@ function main() {
   });
   state.answers = state.answers.slice(0, 500);
 
-  console.log(
-    `${noteId}: ${LEVELS[level].label} → ステージ ${before} → ${stage} / 次回 ${nextReviewDate} (${days}日後)`
-  );
-
   if (dryRun) {
-    console.log("DRY_RUN のため書き込みませんでした");
+    console.log(
+      `[DRY_RUN] ${noteId}: ${LEVELS[level].label} → ${before} → ${stage} / 次回 ${nextReviewDate} (${days}日後)`,
+    );
     return;
   }
+
   writeFileSync(full, `${JSON.stringify(note, null, 2)}\n`);
   writeFileSync(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`);
+
+  report(
+    true,
+    `**${LEVELS[level].label}** で記録しました。\n\n` +
+      `- 復習ステージ: ${before} → **${stage}**\n` +
+      `- 次回: **${nextReviewDate}**（${days}日後）`,
+  );
 }
 
 main();
