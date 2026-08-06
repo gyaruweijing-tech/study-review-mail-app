@@ -1,0 +1,181 @@
+<!--
+  単発リマインダーの本文。メールクライアント向けなので:
+  - CSSは全部インライン(Gmailは<style>を落とすことがある)
+  - flex/gridは使わずtableで組む
+  - 外部画像を読まない(絵文字と枠線だけで見た目を作る)
+-->
+<div style="margin:0;padding:24px 12px;background:#e8ded0;font-family:'Yu Mincho','Hiragino Mincho ProN','MS PMincho',serif;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="width:100%;max-width:600px;margin:0 auto;background:#f7efe0;border:3px solid #4a3826;border-radius:2px;box-shadow:0 4px 0 rgba(74,56,38,0.35);">
+
+  <!-- 受注票ヘッダ -->
+  <tr>
+    <td style="background:#4a3826;padding:14px 20px;border-bottom:3px solid #8b6f47;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr>
+          <td style="color:#e9c46a;font-size:12px;letter-spacing:4px;">集会所クエスト</td>
+          <td align="right" style="color:#e9c46a;font-size:12px;letter-spacing:2px;">受注票 No.0806</td>
+        </tr>
+      </table>
+      <div style="color:#f7efe0;font-size:22px;font-weight:bold;letter-spacing:2px;padding-top:8px;">
+        ★☆☆☆☆ &nbsp;JavaSilverの試練
+      </div>
+    </td>
+  </tr>
+
+  <!-- クエスト情報 -->
+  <tr>
+    <td style="padding:18px 20px 6px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;font-size:14px;color:#3a2a18;">
+        <tr>
+          <td style="padding:5px 0;width:96px;color:#8b6f47;">依 頼 主</td>
+          <td style="padding:5px 0;">昨日のあなた</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;color:#8b6f47;">場 所</td>
+          <td style="padding:5px 0;">自宅・机の上</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;color:#8b6f47;">制限時間</td>
+          <td style="padding:5px 0;">本日中（就寝まで）</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;color:#8b6f47;">契 約 金</td>
+          <td style="padding:5px 0;">ビール1本ぶんの我慢</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;color:#8b6f47;">報 酬 金</td>
+          <td style="padding:5px 0;"><strong>10,000z</strong> ＋ 明日の朝の機嫌</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- ターゲット -->
+  <tr>
+    <td style="padding:10px 20px 0;">
+      <div style="border-top:1px dashed #b09a7a;padding-top:14px;"></div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;font-size:14px;color:#3a2a18;line-height:1.7;">
+        <tr>
+          <td style="padding:4px 0;">
+            <span style="display:inline-block;background:#a4413a;color:#fff;font-size:11px;padding:2px 8px;border-radius:2px;letter-spacing:1px;">主目的</span>
+            &nbsp;<strong>JavaSilverの教材を開く</strong>
+            <div style="color:#6b5540;font-size:13px;padding:2px 0 0 4px;">※ 進めた量は問わない。開いた時点で討伐扱い</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;">
+            <span style="display:inline-block;background:#3f6b52;color:#fff;font-size:11px;padding:2px 8px;border-radius:2px;letter-spacing:1px;">サブ</span>
+            &nbsp;何でもいいので1問だけ解く
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;">
+            <span style="display:inline-block;background:#5a5148;color:#fff;font-size:11px;padding:2px 8px;border-radius:2px;letter-spacing:1px;">失敗条件</span>
+            &nbsp;教材に触れないまま日付が変わる
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- 生態メモ -->
+  <tr>
+    <td style="padding:16px 20px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#efe2cc;border-left:4px solid #8b6f47;">
+        <tr>
+          <td style="padding:12px 14px;font-size:13px;color:#3a2a18;line-height:1.8;">
+            <strong style="color:#8b6f47;">◆ 生態メモ（ハンター手帳より）</strong><br>
+            この個体は「やる気」を<strong>事前にドロップしない</strong>ことで知られる。
+            討伐前にいくら待っても落ちない。<br>
+            確認されている入手条件はただ一つ、<strong>先に手を出すこと</strong>。
+            殴り始めて数分後から湧き始める。順序を間違えたハンターが最も多く敗走している。
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- キャラのセリフ -->
+  <tr>
+    <td style="padding:18px 20px 4px;">
+      <div style="border-top:1px dashed #b09a7a;padding-top:14px;font-size:12px;color:#8b6f47;letter-spacing:2px;">― 受注カウンター ―</div>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:6px 20px;">
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:12px;background:#fff9ec;border:1px solid #d8c5a4;">
+        <tr>
+          <td valign="top" style="padding:12px 12px;width:40px;font-size:26px;line-height:1;">🧝‍♀️</td>
+          <td style="padding:12px 12px 12px 0;font-size:13.5px;color:#3a2a18;line-height:1.75;">
+            <strong style="color:#a4413a;">受付嬢・ミサ</strong><br>
+            「本日のクエスト、受注条件は<strong>『教材を開く』だけ</strong>です。
+            解いた問題数はカウントしませんので、開いた瞬間に達成印を押しちゃいますね」
+          </td>
+        </tr>
+      </table>
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:12px;background:#fff9ec;border:1px solid #d8c5a4;">
+        <tr>
+          <td valign="top" style="padding:12px 12px;width:40px;font-size:26px;line-height:1;">🗡️</td>
+          <td style="padding:12px 12px 12px 0;font-size:13.5px;color:#3a2a18;line-height:1.75;">
+            <strong style="color:#a4413a;">ギルドマスター・ガイオウ</strong><br>
+            「教材を開け。それだけでいい。
+            やる気が湧くのを待つな、<strong>手を動かした奴から湧く</strong>。それが狩場の摂理だ」
+          </td>
+        </tr>
+      </table>
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:12px;background:#fff9ec;border:1px solid #d8c5a4;">
+        <tr>
+          <td valign="top" style="padding:12px 12px;width:40px;font-size:26px;line-height:1;">🔮</td>
+          <td style="padding:12px 12px 12px 0;font-size:13.5px;color:#3a2a18;line-height:1.75;">
+            <strong style="color:#a4413a;">龍歴院の学者・ルナ</strong><br>
+            「1ページでも1問でも触ってみて。
+            気づいたら手が止まらなくなってるパターン、<strong>あなたよく知ってるでしょ？</strong>」
+          </td>
+        </tr>
+      </table>
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#fff9ec;border:1px solid #d8c5a4;">
+        <tr>
+          <td valign="top" style="padding:12px 12px;width:40px;font-size:26px;line-height:1;">🐱</td>
+          <td style="padding:12px 12px 12px 0;font-size:13.5px;color:#3a2a18;line-height:1.75;">
+            <strong style="color:#a4413a;">オトモアイルー・スラ丸</strong><br>
+            「まずはボクを一発だけ殴ってみるニャ！
+            それでもう達成条件クリアだから安心するニャ〜」
+          </td>
+        </tr>
+      </table>
+
+    </td>
+  </tr>
+
+  <!-- 受注ボタン風 -->
+  <tr>
+    <td align="center" style="padding:22px 20px 26px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+        <tr>
+          <td style="background:#a4413a;border:2px solid #4a3826;padding:12px 34px;color:#f7efe0;font-size:16px;font-weight:bold;letter-spacing:3px;box-shadow:0 3px 0 #4a3826;">
+            ク エ ス ト を 受 注
+          </td>
+        </tr>
+      </table>
+      <div style="font-size:12px;color:#8b6f47;padding-top:14px;line-height:1.7;">
+        受注方法：机に向かい、教材を開く。<br>以上。
+      </div>
+    </td>
+  </tr>
+
+  <!-- フッタ -->
+  <tr>
+    <td style="background:#4a3826;padding:10px 20px;">
+      <div style="color:#b09a7a;font-size:11px;letter-spacing:1px;">
+        狩猟ギルド ／ 発行：昨日のあなた
+      </div>
+    </td>
+  </tr>
+
+</table>
+</div>

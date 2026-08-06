@@ -7,8 +7,12 @@
  *   MAIL_FROM       省略可。既定は Resend の共有ドメイン
  *   FIRE_DATE       必須。JSTでこの日付(YYYY-MM-DD)のときだけ送る。
  *                   cron に年フィールドが無いため、来年の同じ日に誤爆するのを防ぐ番人
- *   SUBJECT / BODY  件名と本文（プレーンテキスト1行）
+ *   SUBJECT         件名
+ *   HTML_FILE       省略可。HTML本文のファイルパス。長い本文をYAMLに埋めずに済む
+ *   BODY            HTMLを読まないクライアント向けのプレーンテキスト版
  */
+
+import { readFileSync } from "node:fs";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const REQUEST_TIMEOUT_MS = 15000;
@@ -36,9 +40,12 @@ async function main() {
     return;
   }
 
-  const html = `<div style="font-family:sans-serif;font-size:16px;line-height:1.8;color:#222">
+  // HTML_FILE があればそれを本文にする。無ければ BODY をそのまま素朴に包む
+  const htmlFile = process.env.HTML_FILE;
+  const html = htmlFile
+    ? readFileSync(htmlFile, "utf8")
+    : `<div style="font-family:sans-serif;font-size:16px;line-height:1.8;color:#222">
   <p style="margin:0 0 16px">${body.replace(/\n/g, "<br>")}</p>
-  <p style="margin:0;color:#888;font-size:13px">— 明日の自分より</p>
 </div>`;
 
   const controller = new AbortController();
